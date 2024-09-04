@@ -11,24 +11,28 @@
 #include <Arduino.h>
 #include <esp_now.h>
 #include <WiFi.h>
-#include "ESPAsyncWebServer.h"
+
 #include <Arduino_JSON.h>
 
 #include <HTTPClient.h> 
 
 // Replace with your network credentials (STATION)  enjoy office
-  // const char* ssid = "True Enjoy";
-  // const char* password = "enjoy7777777777";
+  const char* ssid = "True Enjoy";
+  const char* password = "enjoy7777777777";
+  String URL = "http://192.168.1.57/espdata_00/upload.php";
 
 
 
 // Replace with your network credentials (STATION)  บ้านริมโขง
-  const char* ssid = "ENJMesh";
-  const char* password = "enjoy042611749";
+  // const char* ssid = "ENJMesh";
+  // const char* password = "enjoy042611749";
 
 // For uplod data to server , xampp
-  String URL = "http://192.168.0.113/EspData/upload.php";
+  //String URL = "http://192.168.0.113/EspData/upload.php";
 
+
+int temperature = 0; 
+int humidity = 0;
 
 // Structure example to receive data
 // Must match the sender structure
@@ -36,7 +40,7 @@ typedef struct struct_message {
   int id;
   float temp;
   float hum;
-  unsigned int readingId;
+  int readingId;
 } struct_message;
 
 
@@ -45,8 +49,7 @@ typedef struct struct_message {
 // Create a Json data package
   JSONVar board;
 
-AsyncWebServer server(80);
-AsyncEventSource events("/events");
+
 
 
 // callback function that will be executed when data is received
@@ -58,13 +61,21 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   board["humidity"] = incomingReadings.hum;
   board["readingId"] = String(incomingReadings.readingId);
   String jsonString = JSON.stringify(board);
-  events.send(jsonString.c_str(), "new_readings", millis());
+  //events.send(jsonString.c_str(), "new_readings", millis());
   
   Serial.printf("Board ID %u: %u bytes\n", incomingReadings.id, len);
   Serial.printf("t value: %4.2f \n", incomingReadings.temp);
   Serial.printf("h value: %4.2f \n", incomingReadings.hum);
   Serial.printf("readingID value: %d \n", incomingReadings.readingId);
   Serial.println();
+
+
+  temperature = incomingReadings.temp;
+  humidity = incomingReadings.hum;
+  Serial.print("Temperature"); Serial.println(temperature);
+  Serial.print("humidity"); Serial.println(humidity);
+
+
 
 }
  
@@ -74,6 +85,7 @@ void setup() {
   
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(WIFI_PS_NONE);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
@@ -97,4 +109,19 @@ void setup() {
  
 void loop() {
 
+  String postData = "temperature=" + String(temperature) + "&humidity=" + String(humidity); 
+
+  HTTPClient http; 
+  http.begin(URL);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  
+  int httpCode = http.POST(postData); 
+  String payload = http.getString(); 
+  
+  Serial.print("URL : "); Serial.println(URL); 
+  Serial.print("Data: "); Serial.println(postData); 
+  Serial.print("httpCode: "); Serial.println(httpCode); 
+  Serial.print("payload : "); Serial.println(payload); 
+  Serial.println("--------------------------------------------------");
+  delay(5000);
 }
